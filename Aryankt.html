@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Himalayan Royals</title>
+    <!-- Tailwind CSS CDN for basic styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #1e293b; /* A deep, rich blue for a royal feel */
+            background-image: linear-gradient(to bottom right, #1e293b, #0f172a);
+        }
+        
+        /* Confetti canvas on top of everything */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        /* Main app container styling */
+        #main-app-container {
+            background-color: #2D3E50;
+            border: 2px solid #FFD700;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Custom styles for the spin wheel container */
+        .wheel-container {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            border-radius: 50%;
+            overflow: hidden;
+            background-color: #fff;
+            transition: transform 4s cubic-bezier(0.2, 0.9, 0.4, 1.0); /* Spinning animation */
+        }
+        
+        /* Custom styles for the pointer/arrow */
+        .pointer {
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-top: 40px solid #FFD700; /* Gold color */
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+        }
+        
+        /* Spin button animation for hover and active states */
+        .spin-btn-anim:hover {
+            box-shadow: 0 0 20px #FFD700;
+        }
+        .spin-btn-anim:active {
+            transform: scale(0.95);
+        }
+        
+        /* Winning segment animation */
+        .winning-animation {
+            animation: pulse-border 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0px rgba(255, 215, 0, 0.7); }
+            50% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0px rgba(255, 215, 0, 0); }
+        }
+        
+        /* Styles for the hamburger menu icon */
+        .hamburger-icon span {
+            display: block;
+            width: 30px;
+            height: 3px;
+            background-color: #FFD700;
+            margin: 6px 0;
+            transition: all 0.3s ease-in-out;
+        }
+        
+        /* Light Bulb Styling */
+        .light-bulb {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: #FFD700; /* Gold color */
+            box-shadow: 0 0 10px #FFD700, 0 0 20px #FFD700;
+            z-index: 1; /* Place below the canvas */
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Main App Container -->
+    <div id="main-app-container" class="relative w-full max-w-sm mx-auto p-4 md:p-6 rounded-xl shadow-2xl flex-col items-center">
+        <!-- Header Section -->
+        <div class="w-full flex justify-between items-center mb-6">
+            <!-- App Name & Balance -->
+            <div class="text-center w-full">
+                <h1 class="text-3xl font-bold text-yellow-500">Himalayan Royals</h1>
+                <p class="text-lg font-semibold text-gray-300 mt-2">Balance: <span id="xd-balance">0</span> XD</p>
+            </div>
+            
+            <!-- Hamburger Menu Icon -->
+            <button id="menu-btn" class="absolute top-4 right-4 focus:outline-none">
+                <div class="hamburger-icon space-y-2">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </button>
+        </div>
+        
+        <!-- Spin Wheel Section -->
+        <div id="spin-section" class="w-full flex flex-col items-center">
+            <!-- Spin Wheel and Pointer -->
+            <div class="relative flex items-center justify-center mb-8">
+                <div id="wheel-container" class="wheel-container">
+                    <canvas id="wheelCanvas" width="350" height="350"></canvas>
+                </div>
+                <div class="pointer"></div>
+            </div>
+
+            <!-- Spin Button -->
+            <button id="spin-btn" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed spin-btn-anim">
+                Spin the Wheel!
+            </button>
+        </div>
+
+        <!-- Withdraw Section -->
+        <div id="withdraw-section" class="w-full hidden text-gray-100">
+            <h2 class="text-2xl font-bold text-yellow-500 text-center mb-4">Withdraw Funds</h2>
+            <div class="bg-yellow-600 text-gray-900 p-4 rounded-lg mb-6 shadow-lg">
+                <p class="text-sm font-semibold">NOTE: 100 XD = 1 RBX. You need to create a Gamepass of 40% higher than the amount you want to redeem because Pls Donate deducts a fee.</p>
+            </div>
+            <form id="withdraw-form" class="space-y-4">
+                <div>
+                    <label for="redeem-amount-rbx" class="block text-sm font-medium">Enter Amount to Redeem (RBX)</label>
+                    <input type="number" id="redeem-amount-rbx" name="redeem-amount-rbx" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm text-white" placeholder="Minimum 7 RBX">
+                </div>
+
+                <div id="calculated-amounts" class="space-y-2 text-sm font-medium">
+                    <p>Equivalent XD to be deducted: <span id="xd-deducted-amount" class="font-bold text-yellow-500">0</span> XD</p>
+                    <p>Gamepass amount to create: <span id="gamepass-amount" class="font-bold text-yellow-500">0</span> RBX</p>
+                </div>
+
+                <div>
+                    <label for="roblox-username" class="block text-sm font-medium">Enter Roblox Username</label>
+                    <input type="text" id="roblox-username" name="roblox-username" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm text-white" placeholder="Your Roblox Username">
+                </div>
+                <div>
+                    <label for="remarks" class="block text-sm font-medium">Remarks</label>
+                    <textarea id="remarks" name="remarks" rows="3" class="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm text-white" placeholder="Optional comments"></textarea>
+                </div>
+                <button type="submit" id="withdraw-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                    Withdraw
+                </button>
+            </form>
+        </div>
+
+        <!-- Notification Section -->
+        <div id="notification-section" class="w-full hidden text-gray-100">
+            <h2 class="text-2xl font-bold text-yellow-500 text-center mb-4">Notifications</h2>
+            <div id="notification-list-container" class="bg-gray-800 p-4 rounded-lg shadow-md max-h-64 overflow-y-auto">
+                <ul id="notification-list" class="space-y-2">
+                    <!-- Notifications will be dynamically added here -->
+                </ul>
+            </div>
+            <button id="clear-notifications-btn" class="w-full mt-4 bg-gray-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed">
+                Clear All Notifications
+            </button>
+        </div>
+
+        <!-- Policy Section -->
+        <div id="policy-section" class="w-full hidden text-gray-100 p-4">
+            <h2 class="text-2xl font-bold text-yellow-500 text-center mb-4">Our Policy</h2>
+            <div class="bg-gray-800 p-4 rounded-lg shadow-md">
+                <p class="text-base text-gray-300">
+                    We are committed to providing a transparent and fair platform for earning Robux.
+                    User data is handled with the utmost care and is not shared with any third parties.
+                    By using this service, you agree to our terms of service and responsible usage.
+                </p>
+            </div>
+        </div>
+
+        <!-- User Info -->
+        <div class="absolute bottom-4 left-4 text-xs text-gray-400 font-mono">
+            <p>Username: <span id="user-username" class="font-bold text-white"></span></p>
+            <p>Referral Code: <span id="user-referral-code" class="font-bold text-white"></span></p>
+        </div>
+    </div>
+    
+    <!-- Sidebar / Menu -->
+    <div id="sidebar" class="fixed top-0 right-0 h-full w-64 bg-gray-900 shadow-xl transform translate-x-full transition-transform duration-300 z-50">
+        <div class="p-6">
+            <button id="close-menu-btn" class="absolute top-4 right-4 text-yellow-500 text-2xl font-bold focus:outline-none">
+                &times;
+            </button>
+            <h2 class="text-xl font-bold text-yellow-500 mb-6">Menu</h2>
+            <nav>
+                <ul class="space-y-4">
+                    <li><a href="#" data-section="spin" class="block text-lg text-gray-400 hover:text-yellow-500 font-semibold transition-colors duration-200">Spin Wheel</a></li>
+                    <li><a href="#" data-section="withdraw" class="block text-lg text-gray-400 hover:text-yellow-500 font-semibold transition-colors duration-200">Withdraw</a></li>
+                    <li><a href="#" data-section="notification" class="block text-lg text-gray-400 hover:text-yellow-500 font-semibold transition-colors duration-200">Notifications</a></li>
+                    <li><a href="#" data-section="policy" class="block text-lg text-gray-400 hover:text-yellow-500 font-semibold transition-colors duration-200">Policy</a></li>
+                    <li><button id="logout-btn" class="w-full text-left text-lg text-red-500 hover:text-red-600 font-semibold transition-colors duration-200">Log Out</button></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <script type="module">
+        // This file contains all the JavaScript logic for the Himalayan Royals game.
+        // It should be linked from the main HTML file.
+        
+        // Import the required Firebase services.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously,
+            signInWithCustomToken,
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc,
+            updateDoc,
+            collection,
+            query,
+            where,
+            getDocs,
+            getDoc 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Include Tone.js for sound effects.
+        import "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js";
+        
+        // --- Firebase Security Rules ---
+        // For this app to work, you MUST set up these security rules in your Firestore console.
+        // Go to Firestore > Rules and replace the existing rules with the ones below.
+        // Make sure to publish them after pasting.
+        /*
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /artifacts/{appId}/public/data/users/{userId} {
+              allow read, write: if request.auth != null;
+            }
+          }
+        }
+        */
+        
+        // --- Firebase Initialization ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : '';
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        let userId = '';
+        
+        /**
+         * Signs in the user using the provided custom token or anonymously.
+         * This function must be awaited before any Firestore operations.
+         */
+        async function authenticateUser() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser?.uid || crypto.randomUUID();
+                console.log("Firebase authentication successful. User ID:", userId);
+            } catch (error) {
+                console.error("Firebase authentication failed:", error);
+                console.error("Authentication Error", "Failed to authenticate with Firebase. Please try again.");
+            }
+        }
+        
+        // --- Game Configuration ---
+        // Updated color scheme and chances
+        const segments = [
+            { text: '2 XD', value: 2, chance: 37, color: '#2C3E50' },
+            { text: '4 XD', value: 4, chance: 30, color: '#34495E' },
+            { text: '10 XD', value: 10, chance: 10, color: '#F39C12' },
+            { text: '20 XD', value: 20, chance: 5, color: '#F1C40F' },
+            { text: '16 XD', value: 16, chance: 15, color: '#3498DB' },
+            { text: '50 XD', value: 50, chance: 2, color: '#E74C3C' },
+            { text: '100 XD', value: 100, chance: 0.9, color: '#9B59B6' },
+            { text: 'Jackpot', value: 0, chance: 0.1, color: '#FFD700' }, // Jackpot is now winnable
+        ];
+        
+        // Jackpot constants
+        const JACKPOT_INCREMENT_PER_MINUTE = 100;
+        
+        // Withdrawal constants
+        const MIN_WITHDRAW_RBX = 7;
+        const RBX_TO_XD_RATE = 100;
+        const GAMEPASS_DEDUCTION_RATE = 0.40;
+        const REFERRAL_BONUS_RATE = 0.10;
+        
+        // --- State Variables ---
+        let xdBalance = 0;
+        let jackpot = 0;
+        let userReferralCode = '';
+        let referredBy = null;
+        let isSpinning = false;
+        let notifications = [];
+        let username = '';
+        
+        // --- Audio Context & Sound Effects ---
+        let spinSound, winSound;
+        try {
+            // A synth for the spinning sound effect
+            const spinSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: 'square' },
+                envelope: {
+                    attack: 0.05,
+                    decay: 0.1,
+                    sustain: 0.1,
+                    release: 0.1
+                }
+            }).toDestination();
+            
+            // A loop to play a sound every 8th note while spinning
+            spinSound = new Tone.Loop(time => {
+                spinSynth.triggerAttackRelease("C4", "8n", time);
+            }, "8n");
+        
+            // A synth for the winning chime
+            winSound = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: {
+                    attack: 0.005,
+                    decay: 0.5,
+                    sustain: 0.1,
+                    release: 1
+                }
+            }).toDestination();
+        } catch (e) {
+            console.error("Tone.js failed to initialize:", e);
+        }
+        
+        // --- DOM Elements ---
+        const wheelCanvas = document.getElementById('wheelCanvas');
+        const ctx = wheelCanvas.getContext('2d');
+        const spinBtn = document.getElementById('spin-btn');
+        const xdBalanceEl = document.getElementById('xd-balance');
+        const userUsernameEl = document.getElementById('user-username');
+        const userReferralCodeEl = document.getElementById('user-referral-code');
+        const wheelContainer = document.getElementById('wheel-container');
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const spinSection = document.getElementById('spin-section');
+        const withdrawSection = document.getElementById('withdraw-section');
+        const notificationSection = document.getElementById('notification-section');
+        const redeemAmountRbxInput = document.getElementById('redeem-amount-rbx');
+        const robloxUsernameInput = document.getElementById('roblox-username');
+        const withdrawForm = document.getElementById('withdraw-form');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const xdDeductedAmountEl = document.getElementById('xd-deducted-amount');
+        const gamepassAmountEl = document.getElementById('gamepass-amount');
+        const notificationList = document.getElementById('notification-list');
+        const clearNotificationsBtn = document.getElementById('clear-notifications-btn');
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const confettiCtx = confettiCanvas.getContext('2d');
+        
+        // --- Confetti VFX ---
+        const confettiParticles = [];
+        const confettiColors = ['#FFD700', '#F1C40F', '#F39C12', '#FFFFFF', '#3498DB'];
+        const confettiDuration = 3000;
+        
+        function createConfetti() {
+            for (let i = 0; i < 100; i++) {
+                confettiParticles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * -confettiCanvas.height,
+                    vx: Math.random() * 6 - 3,
+                    vy: Math.random() * 3 + 2,
+                    rot: Math.random() * 360,
+                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+                    opacity: 1,
+                    size: Math.random() * 8 + 4
+                });
+            }
+        }
+        
+        function drawConfetti() {
+            confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            for (let i = 0; i < confettiParticles.length; i++) {
+                const p = confettiParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.05; // Gravity
+                p.opacity -= 0.01;
+                
+                confettiCtx.save();
+                confettiCtx.translate(p.x, p.y);
+                confettiCtx.rotate(p.rot * Math.PI / 180);
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.globalAlpha = p.opacity;
+                confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                confettiCtx.restore();
+        
+                if (p.y > confettiCanvas.height || p.opacity <= 0) {
+                    confettiParticles.splice(i, 1);
+                    i--;
+                }
+            }
+  
